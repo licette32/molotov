@@ -1,0 +1,99 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  createWalletsKit,
+  type ISupportedWallet,
+  type StellarWalletsKit,
+} from "@/lib/stellar";
+
+const SELECTED_WALLET_KEY = "molotov:selectedWalletId";
+
+type WalletContextValue = {
+  address: string | null;
+  isConnected: boolean;
+  isConnecting: boolean;
+  connect: () => Promise<void>;
+  disconnect: () => Promise<void>;
+};
+
+const WalletContext = createContext<WalletContextValue | null>(null);
+
+export function WalletProvider({ children }: { children: ReactNode }) {
+  const kitPromiseRef = useRef<Promise<StellarWalletsKit> | null>(null);
+  const [address, setAddress] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  // Lazily create the kit, once, in the browser only.
+  const ensureKit = useCallback(() => {
+    if (!kitPromiseRef.current) kitPromiseRef.current = createWalletsKit();
+    return kitPromiseRef.current;
+  }, []);
+
+  // Restore a previous session if the user already authorized a wallet.
+  useEffect(() => {
+    const savedId = window.localStorage.getItem(SELECTED_WALLET_KEY);
+    if (!savedId) return;
+    ensureKit()
+      .then(async (kit) => {
+        kit.setWallet(savedId);
+        const { address } = await kit.getAddress({ skipRequestAccess: true });
+        setAddress(address);
+      })
+      .catch(() => window.localStorage.removeItem(SELECTED_WALLET_KEY));
+  }, [ensureKit]);
+
+  const connect = useCallback(async () => {
+    setIsConnecting(true);
+    try {
+      const kit = await ensureKit();
+      await kit.openModal({
+        onWalletSelected: async (option: ISupportedWallet) => {
+          kit.setWallet(option.id);
+          window.localStorage.setItem(SELECTED_WALLET_KEY, option.id);
+          const { address } = await kit.getAddress();
+          setAddress(address);
+        },
+      });
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [ensureKit]);
+
+  const disconnect = useCallback(async () => {
+    const kit = await ensureKit();
+    await kit.disconnect();
+    window.localStorage.removeItem(SELECTED_WALLET_KEY);
+    setAddress(null);
+  }, [ensureKit]);
+
+  return (
+    <WalletContext.Provider
+      value={{
+        address,
+        isConnected: address !== null,
+        isConnecting,
+        connect,
+        disconnect,
+      }}
+    >
+      {children}
+    </WalletContext.Provider>
+  );
+}
+
+export function useWalletContext(): WalletContextValue {
+  const ctx = useContext(WalletContext);
+  if (!ctx) {
+    throw new Error("useWallet debe usarse dentro de <WalletProvider>");
+  }
+  return ctx;
+}

@@ -38,3 +38,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Guia de diseno base (referencia externa, no publicar)
+apps/web/.agents/skills/design-system/SKILL.md

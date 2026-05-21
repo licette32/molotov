@@ -12,6 +12,7 @@ out/
 # rust / soroban
 target/
 **/target/
+**/test_snapshots/
 
 # env
 .env

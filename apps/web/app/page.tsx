@@ -1,20 +1,25 @@
-import { WalletButton } from "@/components/wallet-button";
+import { Nav } from "@/components/nav";
+import { Hero } from "@/components/hero";
+import { EconomyFlow } from "@/components/economy-flow";
+import { ActivityFeed } from "@/components/activity-feed";
+import { FeaturedWork } from "@/components/featured-work";
+import { Manifesto } from "@/components/manifesto";
+import { FinalCta } from "@/components/final-cta";
+import { Footer } from "@/components/footer";
 
 export default function Home() {
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="flex items-center justify-between border-b border-white/12 px-6 py-4">
-        <span className="font-[family-name:var(--font-fraunces)] text-2xl font-semibold tracking-tight">
-          Molotov
-        </span>
-        <WalletButton />
-      </header>
-
-      <main className="flex flex-1 items-center justify-center px-6">
-        <h1 className="font-[family-name:var(--font-fraunces)] text-6xl font-semibold tracking-tight sm:text-8xl">
-          Molotov
-        </h1>
+    <div className="relative z-10 flex flex-1 flex-col">
+      <Nav />
+      <main className="flex flex-1 flex-col">
+        <Hero />
+        <EconomyFlow />
+        <ActivityFeed />
+        <FeaturedWork />
+        <Manifesto />
+        <FinalCta />
       </main>
+      <Footer />
     </div>
   );
 }

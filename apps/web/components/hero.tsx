@@ -1,0 +1,57 @@
+import Link from "next/link";
+import { ContractEvidence } from "@/components/contract-evidence";
+
+export function Hero() {
+  return (
+    <section className="relative overflow-hidden pt-20 pb-16 md:pt-28 lg:pt-36">
+      {/* Eyebrow — aligned to the page rail. Directed at one audience: artists. */}
+      <div className="mx-auto max-w-7xl px-6 md:px-10 lg:px-16">
+        <p className="flex items-center gap-2.5 font-[family-name:var(--font-geist-mono)] text-[13px] uppercase tracking-[0.18em] text-[#F5F4ED]/60">
+          <span
+            aria-hidden
+            className="inline-block size-1.5 rounded-full bg-[#2D43FF] animate-breathe"
+          />
+          Para artistas · Beta abierta · Buenos Aires
+        </p>
+      </div>
+
+      {/* The h1 breaks the rail: shifted right and bleeding toward the edge. */}
+      <div className="px-6 md:px-10 lg:px-16">
+        <h1 className="mt-8 max-w-[16ch] font-[family-name:var(--font-fraunces)] text-[clamp(2.75rem,11vw,10.5rem)] font-light leading-[0.92] tracking-[-0.02em] [font-variation-settings:'opsz'_144] md:ml-auto md:max-w-[15ch] md:text-right lg:-mr-[3vw]">
+          Tu obra te paga{" "}
+          <em className="font-normal italic text-[#5B6CFF]">cada vez</em> que
+          cambia de manos.
+        </h1>
+      </div>
+
+      <div className="mx-auto mt-12 grid max-w-7xl gap-10 px-6 md:mt-16 md:grid-cols-[1fr_auto] md:items-end md:px-10 lg:px-16">
+        <p className="max-w-xl text-base leading-relaxed text-[#F5F4ED]/70 md:text-lg">
+          Molotov graba la regalía en el contrato cuando minteás —entre 1 y 15%,
+          inmutable. En cada reventa, el contrato te paga antes de cerrar la
+          operación. No es una promesa de la plataforma. Es código.
+        </p>
+
+        <div className="flex flex-col gap-4 md:items-end">
+          <div className="flex flex-col gap-3 sm:flex-row md:flex-col md:items-end">
+            <Link
+              href="#crear"
+              className="inline-flex h-12 items-center justify-center rounded-md bg-[#2D43FF] px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#4B5EFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4ED]"
+            >
+              Mintear primera obra
+            </Link>
+            <a
+              href="#actividad"
+              className="inline-flex h-12 items-center justify-center px-2 font-[family-name:var(--font-geist-mono)] text-[14px] text-[#F5F4ED]/70 underline-offset-4 transition-colors hover:text-[#F5F4ED] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D43FF]"
+            >
+              ¿Coleccionás? Ver obras en venta
+            </a>
+          </div>
+          {/* Soft trust badge instead of the heavy contract block. */}
+          <div id="contrato" className="scroll-mt-24">
+            <ContractEvidence />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

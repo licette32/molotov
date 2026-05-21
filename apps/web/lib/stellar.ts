@@ -44,6 +44,17 @@ export async function createWalletsKit(): Promise<StellarWalletsKit> {
   });
 }
 
+/** Deployed Molotov NFT contract (Stellar testnet). Evidence, not decoration. */
+export const NFT_CONTRACT_ID =
+  "CB3OUQCNNYIGN6IONO5YJVK3QOROGI22T6MB24NPWJNZDPTCLUCRJLA2";
+
+/** Builds a stellar.expert explorer URL for a contract on the active network. */
+export function contractExplorerUrl(contractId: string): string {
+  const net =
+    process.env.NEXT_PUBLIC_STELLAR_NETWORK === "PUBLIC" ? "public" : "testnet";
+  return `https://stellar.expert/explorer/${net}/contract/${contractId}`;
+}
+
 /** Truncates a Stellar address for display, e.g. GABC…XY12. */
 export function truncateAddress(address: string, prefix = 4, suffix = 4): string {
   if (address.length <= prefix + suffix) return address;

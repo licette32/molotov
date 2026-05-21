@@ -6,6 +6,9 @@ import { WalletProvider } from "@/providers/wallet-provider";
 const fraunces = Fraunces({
   variable: "--font-fraunces",
   subsets: ["latin"],
+  display: "swap",
+  style: ["normal", "italic"],
+  axes: ["opsz"],
 });
 
 const geistSans = Geist({
@@ -34,7 +37,9 @@ export default function RootLayout({
       lang="es"
       className={`${fraunces.variable} ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-black text-[#F5F4ED] font-[family-name:var(--font-geist-sans)]">
+      <body className="relative min-h-full flex flex-col bg-black text-[#F5F4ED] font-[family-name:var(--font-geist-sans)]">
+        {/* Grain overlay: sits above the black background, below content (z-10). */}
+        <div aria-hidden className="grain pointer-events-none fixed inset-0 z-0 opacity-[0.04]" />
         <WalletProvider>{children}</WalletProvider>
       </body>
     </html>

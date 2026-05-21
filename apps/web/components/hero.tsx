@@ -25,31 +25,33 @@ export function Hero() {
       </div>
 
       <div className="mx-auto mt-12 grid max-w-7xl gap-10 px-6 md:mt-16 md:grid-cols-[1fr_auto] md:items-end md:px-10 lg:px-16">
-        <p className="max-w-xl text-base leading-relaxed text-[#F5F4ED]/70 md:text-lg">
-          Molotov graba la regalía en el contrato cuando minteás —entre 1 y 15%,
-          inmutable. En cada reventa, el contrato te paga antes de cerrar la
-          operación. No es una promesa de la plataforma. Es código.
-        </p>
-
-        <div className="flex flex-col gap-4 md:items-end">
-          <div className="flex flex-col gap-3 sm:flex-row md:flex-col md:items-end">
-            <Link
-              href="#crear"
-              className="inline-flex h-12 items-center justify-center rounded-md bg-[#2D43FF] px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#4B5EFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4ED]"
-            >
-              Mintear primera obra
-            </Link>
-            <a
-              href="#actividad"
-              className="inline-flex h-12 items-center justify-center px-2 font-[family-name:var(--font-geist-mono)] text-[14px] text-[#F5F4ED]/70 underline-offset-4 transition-colors hover:text-[#F5F4ED] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D43FF]"
-            >
-              ¿Coleccionás? Ver obras en venta
-            </a>
-          </div>
-          {/* Soft trust badge instead of the heavy contract block. */}
+        {/* Left: information — body copy with its trust signal underneath. */}
+        <div className="flex flex-col items-start gap-6">
+          <p className="max-w-xl text-base leading-relaxed text-[#F5F4ED]/70 md:text-lg">
+            Molotov graba la regalía en el contrato cuando minteás —entre 1 y
+            15%, inmutable. En cada reventa, el contrato te paga antes de cerrar
+            la operación. No es una promesa de la plataforma. Es código.
+          </p>
+          {/* Soft trust badge: it backs the paragraph, not the CTA. */}
           <div id="contrato" className="scroll-mt-24">
             <ContractEvidence />
           </div>
+        </div>
+
+        {/* Right: action — primary CTA with the secondary path below. */}
+        <div className="flex flex-col gap-3 sm:flex-row md:flex-col md:items-end">
+          <Link
+            href="#crear"
+            className="inline-flex h-12 items-center justify-center rounded-md bg-[#2D43FF] px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#4B5EFF] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4ED]"
+          >
+            Mintear primera obra
+          </Link>
+          <a
+            href="#actividad"
+            className="inline-flex h-12 items-center justify-center px-2 font-[family-name:var(--font-geist-mono)] text-[14px] text-[#F5F4ED]/70 underline-offset-4 transition-colors hover:text-[#F5F4ED] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2D43FF]"
+          >
+            ¿Coleccionás? Ver obras en venta
+          </a>
         </div>
       </div>
     </section>

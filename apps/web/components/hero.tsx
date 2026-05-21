@@ -17,7 +17,7 @@ export function Hero() {
 
       {/* The h1 breaks the rail: shifted right and bleeding toward the edge. */}
       <div className="px-6 md:px-10 lg:px-16">
-        <h1 className="mt-8 max-w-[16ch] font-[family-name:var(--font-fraunces)] text-[clamp(2.75rem,11vw,10.5rem)] font-light leading-[0.92] tracking-[-0.02em] [font-variation-settings:'opsz'_144] md:ml-auto md:max-w-[15ch] md:text-right lg:-mr-[3vw]">
+        <h1 className="mt-8 font-[family-name:var(--font-fraunces)] text-[clamp(2.75rem,9vw,8.5rem)] font-light leading-[0.95] tracking-[-0.02em] [font-variation-settings:'opsz'_144] md:ml-auto md:max-w-[82%] md:text-right lg:max-w-[70%] lg:-mr-[2vw]">
           Tu obra te paga{" "}
           <em className="font-normal italic text-[#5B6CFF]">cada vez</em> que
           cambia de manos.

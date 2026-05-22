@@ -46,7 +46,7 @@ export async function createWalletsKit(): Promise<StellarWalletsKit> {
 
 /** Deployed Molotov NFT contract (Stellar testnet). Evidence, not decoration. */
 export const NFT_CONTRACT_ID =
-  "CB3OUQCNNYIGN6IONO5YJVK3QOROGI22T6MB24NPWJNZDPTCLUCRJLA2";
+  "CCRGD3FAIZY4VRP55QFMFFSSAEKYMZE7LB5EF6OXPVYVYNVXEC7UFMT4";
 
 /** Builds a stellar.expert explorer URL for a contract on the active network. */
 export function contractExplorerUrl(contractId: string): string {

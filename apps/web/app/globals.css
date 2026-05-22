@@ -148,6 +148,28 @@
   transform: none;
 }
 
+/* Indeterminate progress bar (mint flow). No spinner. */
+@keyframes indeterminate {
+  0% {
+    left: -40%;
+    width: 40%;
+  }
+  50% {
+    width: 55%;
+  }
+  100% {
+    left: 100%;
+    width: 40%;
+  }
+}
+.progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: #0178de;
+  animation: indeterminate 1.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-breathe {
     animation: none;
@@ -156,6 +178,12 @@
     opacity: 1;
     transform: none;
     transition: none;
+  }
+  .progress-fill {
+    animation: none;
+    left: 0;
+    width: 100%;
+    opacity: 0.6;
   }
 }
 

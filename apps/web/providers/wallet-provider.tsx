@@ -11,11 +11,14 @@ import {
 } from "react";
 import {
   createWalletsKit,
+  STELLAR_NETWORK_PASSPHRASE,
   type ISupportedWallet,
   type StellarWalletsKit,
 } from "@/lib/stellar";
 
 const SELECTED_WALLET_KEY = "molotov:selectedWalletId";
+
+type SignResult = { signedTxXdr: string; signerAddress?: string };
 
 type WalletContextValue = {
   address: string | null;
@@ -23,6 +26,11 @@ type WalletContextValue = {
   isConnecting: boolean;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
+  /** Signs a transaction XDR with the connected wallet (Stellar Wallets Kit). */
+  signTransaction: (
+    xdr: string,
+    opts?: { networkPassphrase?: string },
+  ) => Promise<SignResult>;
 };
 
 const WalletContext = createContext<WalletContextValue | null>(null);
@@ -75,6 +83,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setAddress(null);
   }, [ensureKit]);
 
+  const signTransaction = useCallback(
+    async (xdr: string, opts?: { networkPassphrase?: string }) => {
+      const kit = await ensureKit();
+      return kit.signTransaction(xdr, {
+        address: address ?? undefined,
+        networkPassphrase: opts?.networkPassphrase ?? STELLAR_NETWORK_PASSPHRASE,
+      });
+    },
+    [ensureKit, address],
+  );
+
   return (
     <WalletContext.Provider
       value={{
@@ -83,6 +102,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         isConnecting,
         connect,
         disconnect,
+        signTransaction,
       }}
     >
       {children}

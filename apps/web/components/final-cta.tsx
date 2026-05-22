@@ -12,7 +12,7 @@ export function FinalCta() {
 
       <div className="mt-12 flex flex-col gap-4 sm:flex-row sm:items-center">
         <Link
-          href="#crear"
+          href="/crear"
           className="inline-flex h-12 items-center justify-center rounded-md bg-[#0178DE] px-7 text-[15px] font-medium text-white transition-colors hover:bg-[#3493E5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4ED]"
         >
           Mintear primera obra

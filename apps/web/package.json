@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.7.0",
+    "@lighthouse-web3/sdk": "^0.4.5",
+    "@molotov/stellar-client": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",

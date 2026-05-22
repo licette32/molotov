@@ -1,0 +1,12 @@
+{
+  "name": "@molotov/stellar-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./molotov-nft": "./src/molotov-nft/src/index.ts"
+  },
+  "dependencies": {
+    "@stellar/stellar-sdk": "^13.3.0"
+  }
+}

@@ -1,43 +1,24 @@
-import * as Client from "@storacha/client";
-import { Signer } from "@storacha/client/principal/ed25519";
-import * as Proof from "@storacha/client/proof";
-import { StoreMemory } from "@storacha/client/stores/memory";
+import { PinataSDK } from "pinata";
 
-// IPFS uploads run server-side so the Storacha credentials never reach the
-// client. Storacha uses UCAN: an agent key (STORACHA_KEY) plus a delegation
-// proof for the space (STORACHA_PROOF). See apps/web/docs/storacha-setup.md.
+// IPFS uploads run server-side so the Pinata JWT never reaches the client.
+// Uses the modern v3 SDK (pinata.upload.public.file). See docs/pinata-setup.md.
 export const runtime = "nodejs";
 
-function isConfigured() {
-  return Boolean(process.env.STORACHA_KEY && process.env.STORACHA_PROOF);
-}
+let pinata: PinataSDK | null = null;
 
-// The UCAN client setup (parse key, create agent, add space) is expensive, so
-// build it once per server process and reuse it across requests.
-let clientPromise: ReturnType<typeof createClient> | null = null;
-
-async function createClient() {
-  const principal = Signer.parse(process.env.STORACHA_KEY as string);
-  const store = new StoreMemory();
-  const client = await Client.create({ principal, store });
-  const proof = await Proof.parse(process.env.STORACHA_PROOF as string);
-  const space = await client.addSpace(proof);
-  await client.setCurrentSpace(space.did());
-  return client;
-}
-
-function getClient() {
-  if (!clientPromise) {
-    clientPromise = createClient().catch((err) => {
-      clientPromise = null; // allow a retry on the next request
-      throw err;
+function getPinata(): PinataSDK {
+  if (!pinata) {
+    pinata = new PinataSDK({
+      pinataJwt: process.env.PINATA_JWT as string,
+      // Only used by retrieval helpers; uploads work without a dedicated one.
+      pinataGateway: process.env.PINATA_GATEWAY,
     });
   }
-  return clientPromise;
+  return pinata;
 }
 
 export async function POST(request: Request) {
-  if (!isConfigured()) {
+  if (!process.env.PINATA_JWT) {
     return Response.json(
       { error: "IPFS no está configurado en el servidor." },
       { status: 500 },
@@ -57,12 +38,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const client = await getClient();
-    const cid = await client.uploadFile(file);
-    const cidStr = cid.toString();
+    const upload = await getPinata().upload.public.file(file);
+    const cid = upload.cid;
+    if (!cid) throw new Error("Pinata no devolvió un CID");
     return Response.json({
-      cid: cidStr,
-      gatewayUrl: `https://${cidStr}.ipfs.w3s.link`,
+      cid,
+      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${cid}`,
     });
   } catch (err) {
     console.error("[ipfs/upload]", err);

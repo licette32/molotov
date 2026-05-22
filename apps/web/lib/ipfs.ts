@@ -1,5 +1,5 @@
 // Client-side IPFS helpers. They post to /api/ipfs/upload, which holds the
-// Storacha credentials server-side — they are never exposed to the browser.
+// Pinata JWT server-side — it is never exposed to the browser.
 
 export type IpfsResult = { cid: string; gatewayUrl: string };
 

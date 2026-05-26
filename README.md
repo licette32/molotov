@@ -1,26 +1,34 @@
 # Molotov
 
-Marketplace Web3 de arte digital para artistas visuales contemporáneos. La premisa es
-**"Spotify invertido"**: el ingreso fluye hacia el artista, no al revés.
+A Web3 marketplace for contemporary visual art, built on Stellar (Soroban).
+The differentiator: **royalties are written into the contract at mint time** —
+between 1% and 15%, configurable by the artist, immutable afterwards. Every
+resale pays the artist before the transfer closes; the sale does not complete
+if the royalty does not.
 
-El diferencial técnico son las **regalías grabadas on-chain** (1–15%, configurables al mintear
-e inmutables después). En cada reventa el contrato distribuye la regalía al artista de forma
-automática, y la venta no se completa si la regalía no se distribuye.
+The contract enforces the royalty, not the platform.
+
+Editorial / gallery aesthetic, intentionally anti-crypto-bro.
+
+## Status
+
+Beta on Stellar testnet. Live NFT contract:
+[`CCRGD3F…FMT4`](https://stellar.expert/explorer/testnet/contract/CCRGD3FAIZY4VRP55QFMFFSSAEKYMZE7LB5EF6OXPVYVYNVXEC7UFMT4).
 
 ## Stack
 
 - **Web:** Next.js 16 + React 19 + Tailwind + shadcn/ui
 - **Mobile:** React Native + Expo + NativeWind
-- **Contratos:** Soroban (Rust) + OpenZeppelin Stellar Contracts
+- **Contracts:** Soroban (Rust) + OpenZeppelin Stellar Contracts
 - **Wallet:** Stellar Wallets Kit (Freighter, xBull, Albedo, LOBSTR)
-- **DB:** Supabase (auth + datos off-chain)
-- **Storage:** IPFS vía Lighthouse
-- **Monorepo:** pnpm + turborepo
+- **Database:** Supabase (auth + off-chain data)
+- **Storage:** IPFS via Pinata
+- **Monorepo:** pnpm + Turborepo
 
 ## Quick start
 
-Requisitos: Node 20 (ver `.nvmrc`), pnpm 10, Rust con target `wasm32v1-none` y la CLI de Stellar
-(para los contratos).
+Requirements: Node 20 (see `.nvmrc`), pnpm 10, Rust with the `wasm32v1-none`
+target and the Stellar CLI (for the contracts).
 
 ```bash
 git clone <repo-url> molotov
@@ -29,19 +37,22 @@ pnpm install
 pnpm dev
 ```
 
-## Tareas disponibles
+For the mint flow, copy `apps/web/.env.example` to `apps/web/.env.local` and
+add a Pinata JWT — setup steps in `apps/web/docs/pinata-setup.md`.
 
-Todas corren a través de turborepo desde la raíz:
+## Available tasks
+
+All run through Turborepo from the repo root:
 
 ```bash
-pnpm dev      # levanta las apps en modo desarrollo
-pnpm build    # buildea todo el workspace
-pnpm lint     # corre ESLint en apps y packages
-pnpm test     # corre los tests del workspace
-pnpm format   # formatea con Prettier
+pnpm dev      # start apps in development mode
+pnpm build    # build the entire workspace
+pnpm lint     # run ESLint across apps and packages
+pnpm test     # run workspace tests
+pnpm format   # format with Prettier
 ```
 
-## Estructura del monorepo
+## Monorepo layout
 
 ```
 molotov/
@@ -50,18 +61,23 @@ molotov/
 │   └── mobile/          # Expo + expo-router + NativeWind
 ├── contracts/
 │   ├── nft/             # MolotovNFT (Soroban)
-│   ├── marketplace/     # Marketplace con royalty enforcement
-│   └── artist-registry/ # Registro de artistas verificados
+│   ├── marketplace/     # Marketplace with royalty enforcement
+│   └── artist-registry/ # Verified-artist registry
 ├── packages/
-│   ├── stellar-client/  # Bindings TS de los contratos + cliente Stellar
-│   ├── types/           # Tipos compartidos
-│   └── ui/              # Componentes UI compartidos
-├── supabase/            # Schema y migraciones off-chain
+│   ├── stellar-client/  # TS contract bindings + Stellar client helpers
+│   ├── types/           # Shared types
+│   └── ui/              # Shared UI components
+├── supabase/            # Off-chain schema and migrations
 └── doc/
-    └── adr/             # Architecture Decision Records
+    ├── adr/             # Architecture Decision Records
+    ├── branding/        # Brand assets and value proposition
+    └── contracts.md     # On-chain contract registry
 ```
 
-## Idiomas e identidad
+## Identity & languages
 
-Copy y mensajes al usuario en español (Argentina por default), con EN y PT planificados.
-Identidad editorial/galería, anti-cripto-bro. Paleta azul/negro/blanco, acento `#2D43FF`.
+Dark base, off-white text, flame-blue accent (`#0178DE`, sampled from the
+official logo). Display type: Fraunces. Body: Geist / Geist Mono.
+
+User-facing copy is Spanish (Argentina) by default. English and Portuguese
+support is on the roadmap.

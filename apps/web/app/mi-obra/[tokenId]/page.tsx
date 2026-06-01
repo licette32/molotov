@@ -11,16 +11,11 @@ import {
   truncateAddress,
   STELLAR_NETWORK_NAME,
 } from "@/lib/stellar";
+import { ipfsToGateway } from "@/lib/ipfs";
 
 const RPC_URL = "https://soroban-testnet.stellar.org";
 // A funded testnet account used only as the source for read-only simulation.
 const READ_SOURCE = "GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM";
-
-function ipfsToGateway(uri: string): string {
-  return uri.startsWith("ipfs://")
-    ? `https://gateway.pinata.cloud/ipfs/${uri.slice("ipfs://".length)}`
-    : uri;
-}
 
 type Phase = "chain" | "ipfs" | "ready" | "error";
 

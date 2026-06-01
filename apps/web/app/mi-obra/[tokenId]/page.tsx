@@ -9,6 +9,7 @@ import {
   NFT_CONTRACT_ID,
   contractExplorerUrl,
   truncateAddress,
+  STELLAR_NETWORK_NAME,
 } from "@/lib/stellar";
 
 const RPC_URL = "https://soroban-testnet.stellar.org";
@@ -147,7 +148,7 @@ export default function MiObraPage() {
                   <div className="flex items-baseline justify-between border-b border-white/12 pb-3">
                     <dt className="text-sm text-[#F5F4ED]/60">Red</dt>
                     <dd className="font-[family-name:var(--font-geist-mono)] text-sm text-[#F5F4ED]/80">
-                      Stellar testnet
+                      {STELLAR_NETWORK_NAME}
                     </dd>
                   </div>
                 </dl>

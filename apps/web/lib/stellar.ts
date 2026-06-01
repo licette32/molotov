@@ -11,8 +11,11 @@ export type { ISupportedWallet, StellarWalletsKit };
  * to target mainnet. We use the raw passphrase string so the kit package (which
  * registers web components on import) stays out of the server bundle.
  */
+export const IS_TESTNET = process.env.NEXT_PUBLIC_STELLAR_NETWORK !== "PUBLIC";
+export const STELLAR_NETWORK_NAME = IS_TESTNET ? "Stellar testnet" : "Stellar mainnet";
+
 export const STELLAR_NETWORK_PASSPHRASE =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK === "PUBLIC"
+  !IS_TESTNET
     ? "Public Global Stellar Network ; September 2015"
     : "Test SDF Network ; September 2015";
 

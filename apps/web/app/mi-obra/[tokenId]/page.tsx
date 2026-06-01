@@ -1,23 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Client, networks } from "@molotov/stellar-client/molotov-nft";
 import { Nav } from "@/components/nav";
-import {
-  NFT_CONTRACT_ID,
-  contractExplorerUrl,
-  truncateAddress,
-  STELLAR_NETWORK_NAME,
-} from "@/lib/stellar";
-import { ipfsToGateway } from "@/lib/ipfs";
+import { NFT_CONTRACT_ID, contractExplorerUrl, truncateAddress } from "@/lib/stellar";
+import { useI18n } from "@/lib/i18n";
 
 const RPC_URL = "https://soroban-testnet.stellar.org";
 // A funded testnet account used only as the source for read-only simulation.
 const READ_SOURCE = "GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM";
 
-type Phase = "chain" | "ipfs" | "ready" | "error";
+function ipfsToGateway(uri: string): string {
+  return uri.startsWith("ipfs://")
+    ? `https://gateway.pinata.cloud/ipfs/${uri.slice("ipfs://".length)}`
+    : uri;
+}
 
 type Artwork = {
   title: string;
@@ -30,46 +29,22 @@ type Artwork = {
 export default function MiObraPage() {
   const params = useParams<{ tokenId: string }>();
   const tokenId = Number(params.tokenId);
+  const { locale, t } = useI18n();
   const [art, setArt] = useState<Artwork | null>(null);
-  const [phase, setPhase] = useState<Phase>("chain");
-  // timedOut state drives the error-screen copy; timedOutRef gives the async
-  // IIFE a non-stale mutable flag to check without closure capture issues.
-  const [timedOut, setTimedOut] = useState(false);
-  const timedOutRef = useRef(false);
-  const cancelled = useRef(false);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
 
   useEffect(() => {
-    cancelled.current = false;
-    timedOutRef.current = false;
-
-    const timer = setTimeout(() => {
-      if (!cancelled.current) {
-        timedOutRef.current = true;
-        setTimedOut(true);
-        setPhase("error");
-      }
-    }, 10_000);
-
     (async () => {
-      // Reset display state for this tokenId — inside the IIFE so they are
-      // not synchronous top-level effect-body setState calls.
-      setPhase("chain");
-      setTimedOut(false);
-      setArt(null);
-
       if (!Number.isInteger(tokenId)) {
-        clearTimeout(timer);
-        if (!cancelled.current) setPhase("error");
+        setStatus("error");
         return;
       }
-
       const client = new Client({
         contractId: networks.testnet.contractId,
         networkPassphrase: networks.testnet.networkPassphrase,
         rpcUrl: RPC_URL,
         publicKey: READ_SOURCE,
       });
-
       try {
         const [owner, bps, uri] = await Promise.all([
           client.owner_of({ token_id: tokenId }).then((t) => t.result),
@@ -77,106 +52,64 @@ export default function MiObraPage() {
           client.token_uri({ token_id: tokenId }).then((t) => t.result),
         ]);
 
-        if (cancelled.current || timedOutRef.current) return;
-        setPhase("ipfs");
-
         let meta: { name?: string; description?: string; image?: string } = {};
         try {
           meta = await fetch(ipfsToGateway(uri)).then((r) => r.json());
         } catch {
-          /* metadata unavailable — show what we have from chain */
+          /* metadata unavailable - show what we have from chain */
         }
 
-        if (cancelled.current || timedOutRef.current) return;
-        clearTimeout(timer);
         setArt({
-          title: meta.name ?? "Obra sin título",
+          title: meta.name ?? t("artwork.untitled"),
           description: meta.description ?? "",
           image: meta.image ? ipfsToGateway(meta.image) : "",
           artist: owner,
-          royaltyPct: (Number(bps) / 100).toFixed(1).replace(".", ","),
+          royaltyPct:
+            locale === "es"
+              ? (Number(bps) / 100).toFixed(1).replace(".", ",")
+              : (Number(bps) / 100).toFixed(1),
         });
-        // Defer "ready" by one paint so React commits the art with opacity-0
-        // first, giving the CSS transition an initial frame to animate from.
-        requestAnimationFrame(() => {
-          if (!cancelled.current) setPhase("ready");
-        });
+        setStatus("ready");
       } catch (err) {
-        if (cancelled.current) return;
-        clearTimeout(timer);
         console.error("[mi-obra] read failed", err);
-        setPhase("error");
+        setStatus("error");
       }
     })();
-
-    return () => {
-      cancelled.current = true;
-      clearTimeout(timer);
-    };
-  }, [tokenId]);
-
-  const isLoading = phase === "chain" || phase === "ipfs";
+  }, [locale, t, tokenId]);
 
   return (
     <div className="relative z-10 flex flex-1 flex-col">
       <Nav />
       <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-16 md:px-10 md:py-24 lg:px-16">
-
-        {isLoading && !art && (
-          <div className="flex flex-col gap-4">
-            <p className="font-[family-name:var(--font-geist-mono)] text-[12px] uppercase tracking-[0.18em] text-[#F5F4ED]/60">
-              {phase === "chain" ? "Leyendo on-chain…" : "Bajando de IPFS…"}
-            </p>
-            <div className="relative h-0.5 w-48 overflow-hidden bg-white/12 opacity-50">
-              <span className="progress-fill" />
-            </div>
-          </div>
+        {status === "loading" && (
+          <p className="font-[family-name:var(--font-geist-mono)] text-sm text-[#F5F4ED]/60">
+            {t("artwork.loading")}
+          </p>
         )}
 
-        {phase === "error" && (
+        {status === "error" && (
           <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
-            {timedOut ? (
-              <>
-                <p className="font-[family-name:var(--font-fraunces)] text-3xl [font-variation-settings:'opsz'_72]">
-                  Esto está tardando más de lo normal.
-                </p>
-                <p className="mt-3 font-[family-name:var(--font-geist-mono)] text-sm text-[#F5F4ED]/60">
-                  Recargá la página.
-                </p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="mt-8 inline-flex h-12 items-center justify-center rounded-md bg-[#0178DE] px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#3493E5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4ED]"
-                >
-                  Recargar
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="font-[family-name:var(--font-fraunces)] text-3xl [font-variation-settings:'opsz'_72]">
-                  No encontramos esa obra.
-                </p>
-                <Link
-                  href="/crear"
-                  className="mt-8 font-[family-name:var(--font-geist-mono)] text-sm text-[#0178DE] underline-offset-4 hover:underline"
-                >
-                  Mintear una obra
-                </Link>
-              </>
-            )}
+            <p className="font-[family-name:var(--font-fraunces)] text-3xl [font-variation-settings:'opsz'_72]">
+              {t("artwork.notFound")}
+            </p>
+            <Link
+              href="/crear"
+              className="mt-8 font-[family-name:var(--font-geist-mono)] text-sm text-[#0178DE] underline-offset-4 hover:underline"
+            >
+              {t("artwork.mintOne")}
+            </Link>
           </div>
         )}
 
-        {art && (
-          <div
-            className={`transition-opacity duration-200 motion-reduce:transition-none ${
-              phase === "ready" ? "opacity-100" : "opacity-0"
-            }`}
-          >
+        {status === "ready" && art && (
+          <>
             <p className="font-[family-name:var(--font-geist-mono)] text-[12px] uppercase tracking-[0.18em] text-[#0178DE]">
-              Token #{tokenId}
+              {t("artwork.tokenPrefix")} #{tokenId}
             </p>
             <h1 className="mt-4 max-w-[18ch] font-[family-name:var(--font-fraunces)] text-[clamp(2.25rem,6vw,4.5rem)] font-light leading-[0.98] tracking-[-0.02em] [font-variation-settings:'opsz'_144]">
-              ¡Tu obra está en <em className="italic text-[#0178DE]">blockchain</em>!
+              {t("artwork.successBefore")}{" "}
+              <em className="italic text-[#0178DE]">{t("artwork.successEm")}</em>
+              {t("artwork.successAfter")}
             </h1>
             <p className="mt-4 font-[family-name:var(--font-fraunces)] text-2xl text-[#F5F4ED]/80 [font-variation-settings:'opsz'_40]">
               {art.title}
@@ -193,7 +126,7 @@ export default function MiObraPage() {
                   />
                 ) : (
                   <div className="flex aspect-[4/5] items-center justify-center rounded-lg border border-white/12 bg-[#0A0A0B] font-[family-name:var(--font-geist-mono)] text-[12px] uppercase tracking-[0.18em] text-[#F5F4ED]/40">
-                    Imagen en IPFS
+                    {t("artwork.imageFallback")}
                   </div>
                 )}
               </div>
@@ -201,21 +134,21 @@ export default function MiObraPage() {
               <div className="flex flex-col gap-8">
                 <dl className="space-y-5">
                   <div className="flex items-baseline justify-between border-b border-white/12 pb-3">
-                    <dt className="text-sm text-[#F5F4ED]/60">Artista</dt>
+                    <dt className="text-sm text-[#F5F4ED]/60">{t("artwork.artist")}</dt>
                     <dd className="font-[family-name:var(--font-geist-mono)] text-sm text-[#F5F4ED]">
                       {truncateAddress(art.artist, 6, 6)}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between border-b border-white/12 pb-3">
-                    <dt className="text-sm text-[#F5F4ED]/60">Royalty</dt>
+                    <dt className="text-sm text-[#F5F4ED]/60">{t("artwork.royalty")}</dt>
                     <dd className="font-[family-name:var(--font-geist-mono)] text-sm text-[#0178DE]">
                       {art.royaltyPct}%
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between border-b border-white/12 pb-3">
-                    <dt className="text-sm text-[#F5F4ED]/60">Red</dt>
+                    <dt className="text-sm text-[#F5F4ED]/60">{t("artwork.network")}</dt>
                     <dd className="font-[family-name:var(--font-geist-mono)] text-sm text-[#F5F4ED]/80">
-                      {STELLAR_NETWORK_NAME}
+                      {t("artwork.networkName")}
                     </dd>
                   </div>
                 </dl>
@@ -226,17 +159,17 @@ export default function MiObraPage() {
                   rel="noopener noreferrer"
                   className="inline-flex h-12 items-center justify-center rounded-md bg-[#0178DE] px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#3493E5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4ED]"
                 >
-                  Ver certificado de autenticidad ↗
+                  {t("artwork.certificate")} {t("common.externalArrow")}
                 </a>
                 <Link
                   href="/crear"
                   className="font-[family-name:var(--font-geist-mono)] text-sm text-[#F5F4ED]/70 underline-offset-4 transition-colors hover:text-[#F5F4ED] hover:underline"
                 >
-                  Mintear otra obra
+                  {t("artwork.mintAnother")}
                 </Link>
               </div>
             </div>
-          </div>
+          </>
         )}
       </main>
     </div>

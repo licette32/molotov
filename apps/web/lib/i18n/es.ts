@@ -211,6 +211,11 @@ export const es = {
       walletFallback: "—",
       walletReceives: "tu wallet (100%)",
       submit: "Mintear",
+      hintMissingImage: "Subí una imagen para continuar.",
+      hintMissingTitle: "Falta el título de la obra.",
+      hintMissingBoth: "Subí una imagen y poné un título.",
+      changeImage: "Cambiar imagen",
+      removeImage: "Quitar imagen",
     },
   },
   artwork: {

@@ -14,6 +14,9 @@ export const en = {
     activity: "Activity",
     manifesto: "Manifesto",
     contract: "Contract",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    menuLabel: "Menu",
   },
   wallet: {
     connecting: "Connecting…",

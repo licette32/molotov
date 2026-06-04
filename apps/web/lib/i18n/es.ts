@@ -12,6 +12,9 @@ export const es = {
     activity: "Actividad",
     manifesto: "Manifiesto",
     contract: "Contrato",
+    openMenu: "Abrir menú",
+    closeMenu: "Cerrar menú",
+    menuLabel: "Menú",
   },
   wallet: {
     connecting: "Conectando…",

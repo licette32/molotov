@@ -19,6 +19,8 @@ export const en = {
     connecting: "Connecting…",
     connect: "Connect wallet",
     disconnect: "Disconnect",
+    testnetBadge: "TESTNET",
+    networkLabel: "Network",
   },
   common: {
     mintFirst: "Mint first work",

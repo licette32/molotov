@@ -221,6 +221,11 @@ export const es = {
   artwork: {
     untitled: "Obra sin título",
     loading: "Cargando tu obra…",
+    loadingChain: "Leyendo on-chain…",
+    loadingIpfs: "Bajando de IPFS…",
+    timeoutTitle: "Esto está tardando más de lo normal.",
+    timeoutBody: "Recargá la página.",
+    reload: "Recargar",
     notFound: "No encontramos esa obra.",
     mintOne: "Mintear una obra",
     tokenPrefix: "Token",

@@ -223,6 +223,11 @@ export const en = {
   artwork: {
     untitled: "Untitled work",
     loading: "Loading your work…",
+    loadingChain: "Reading on-chain…",
+    loadingIpfs: "Fetching from IPFS…",
+    timeoutTitle: "This is taking longer than usual.",
+    timeoutBody: "Reload the page.",
+    reload: "Reload",
     notFound: "We could not find that work.",
     mintOne: "Mint a work",
     tokenPrefix: "Token",

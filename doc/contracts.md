@@ -52,13 +52,19 @@ para royalties.
 |---|---|
 | Network | TESTNET (`Test SDF Network ; September 2015`) |
 | Contract ID | `CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS` |
-| WASM hash | `34f38178eabf6955b389c5b824151bb11d29e4b2fd484aa1bfdb97428b9eebb9` |
+| WASM hash | `f67053ba9957714ff9b58bef1046c1286ae49ed30568df50d76a5ddef083ad87` |
 | Admin/Owner | `GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM` |
 | Registry | `CAAAA…BSC4` (placeholder all-zeros → gate OFF hasta Paso 7) |
 | Metadata | name `Molotov` · symbol `MOLO` |
 
 > Redeploy de la Fase 0 (cap de recipients + `set_registry` + `upgrade`). El
 > deploy anterior `CCRGD3F…FMT4` queda obsoleto.
+>
+> Upgrade in-place a la Fase 0.5 (extensión de TTL de las entries persistentes
+> royalty/URI). El contract ID **no cambió**; el WASM pasó de `34f38178…eebb9` a
+> `f67053ba…83ad87`. Txs: upload `591097f3b436ce063d5c3a72dc7d85cf1ce8c6ef8a1d4a55baba64f7205fb406`,
+> upgrade `6c81bb426ee16d11d8a269835d4a486d4e15a6752382452c2090c4473763ea29`.
+> TTL de Fase 0.5 activo (mint y `get_royalty_info` bumpean a ~30 días).
 
 Explorer: <https://stellar.expert/explorer/testnet/contract/CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS>
 

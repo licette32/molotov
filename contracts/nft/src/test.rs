@@ -460,3 +460,53 @@ fn test_upgrade_requires_owner_auth() {
     let dummy_hash = BytesN::from_array(&e, &[0u8; 32]);
     client.upgrade(&dummy_hash);
 }
+
+// ================================ TTL ================================
+
+/// `mint` bumps both persistent entries (URI + royalty) to the ~30-day TTL,
+/// and reading royalty via `get_royalty_info` keeps the royalty entry bumped.
+#[test]
+fn test_mint_and_read_extend_persistent_ttl() {
+    use crate::{DataKey, TTL_BUMP_AMOUNT};
+    use soroban_sdk::testutils::storage::Persistent as _;
+    use soroban_sdk::testutils::Ledger as _;
+
+    let e = Env::default();
+    e.mock_all_auths();
+    let admin = Address::generate(&e);
+    let id = e.register(
+        MolotovNft,
+        (
+            admin,
+            placeholder(&e),
+            String::from_str(&e, "Molotov"),
+            String::from_str(&e, "MOLO"),
+        ),
+    );
+    let client = MolotovNftClient::new(&e, &id);
+
+    let artist = Address::generate(&e);
+    let token_id = client.mint(
+        &artist,
+        &artist,
+        &String::from_str(&e, "ipfs://ttl"),
+        &1000u32,
+        &one_recipient(&e, &artist),
+    );
+
+    // Both entries got the ~30-day TTL at mint.
+    e.as_contract(&id, || {
+        let uri_ttl = e.storage().persistent().get_ttl(&DataKey::TokenUri(token_id));
+        let roy_ttl = e.storage().persistent().get_ttl(&DataKey::Royalty(token_id));
+        assert!(uri_ttl >= TTL_BUMP_AMOUNT - 16, "uri ttl too low: {}", uri_ttl);
+        assert!(roy_ttl >= TTL_BUMP_AMOUNT - 16, "royalty ttl too low: {}", roy_ttl);
+    });
+
+    // Advance close to expiry, then a royalty read should bump it back up.
+    e.ledger().with_mut(|l| l.sequence_number += TTL_BUMP_AMOUNT - 100);
+    client.get_royalty_info(&token_id, &1_000_000_000i128);
+    e.as_contract(&id, || {
+        let roy_ttl = e.storage().persistent().get_ttl(&DataKey::Royalty(token_id));
+        assert!(roy_ttl >= TTL_BUMP_AMOUNT - 16, "royalty ttl not re-bumped: {}", roy_ttl);
+    });
+}

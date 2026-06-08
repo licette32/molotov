@@ -34,6 +34,14 @@ const BPS_DENOMINATOR: i128 = 10_000; // 100%
 // gas / DoS vector.
 const MAX_RECIPIENTS: u32 = 10;
 
+// TTL maintenance for the persistent royalty/URI entries. Stellar closes a ledger
+// roughly every 5s, so ~1 day ≈ 17280 ledgers. When an entry has less than ~1 day
+// of life left we bump it back to ~30 days, so an actively used token never lets
+// its royalty/URI config expire. `extend_ttl` only pays rent — it does not rewrite
+// the stored value.
+const TTL_BUMP_THRESHOLD: u32 = 17_280; // ~1 day in ledgers
+const TTL_BUMP_AMOUNT: u32 = 518_400; // ~30 days in ledgers
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
@@ -153,15 +161,26 @@ impl MolotovNft {
 
         let token_id = Base::sequential_mint(e, &recipient);
 
-        // Persist URI + royalty config (immutable from here on).
+        // Persist URI + royalty config (immutable from here on), then bump both
+        // entries to a ~30-day TTL so they don't expire out from under the token.
         e.storage()
             .persistent()
             .set(&DataKey::TokenUri(token_id), &token_uri);
+        e.storage().persistent().extend_ttl(
+            &DataKey::TokenUri(token_id),
+            TTL_BUMP_THRESHOLD,
+            TTL_BUMP_AMOUNT,
+        );
         let recipients_count = recipients.len();
         let config = RoyaltyConfig { total_bps: royalty_bps, recipients };
         e.storage()
             .persistent()
             .set(&DataKey::Royalty(token_id), &config);
+        e.storage().persistent().extend_ttl(
+            &DataKey::Royalty(token_id),
+            TTL_BUMP_THRESHOLD,
+            TTL_BUMP_AMOUNT,
+        );
 
         MintedEvent {
             token_id,
@@ -183,6 +202,13 @@ impl MolotovNft {
     /// so that the sum of amounts == total.
     pub fn get_royalty_info(e: &Env, token_id: u32, sale_price: i128) -> Vec<(Address, i128)> {
         let config = Self::royalty_config(e, token_id);
+        // Keep the royalty entry alive on access: when the marketplace reads it,
+        // bump its TTL. Only extends rent — the value is not rewritten.
+        e.storage().persistent().extend_ttl(
+            &DataKey::Royalty(token_id),
+            TTL_BUMP_THRESHOLD,
+            TTL_BUMP_AMOUNT,
+        );
         let total_amount = mul_div(e, sale_price, config.total_bps as i128, BPS_DENOMINATOR);
 
         let mut out: Vec<(Address, i128)> = Vec::new(e);

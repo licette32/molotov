@@ -3,7 +3,7 @@ extern crate std;
 use soroban_sdk::{
     contract, contractimpl, symbol_short,
     testutils::Address as _,
-    vec, Address, Env, String, Vec,
+    vec, Address, BytesN, Env, String, Vec,
 };
 
 use crate::{MolotovNft, MolotovNftClient, RoyaltyRecipient};
@@ -317,4 +317,146 @@ fn test_burn_by_non_owner_fails() {
         &one_recipient(&e, &owner),
     );
     client.burn(&stranger, &token_id);
+}
+
+// ===================== Recipient cap (MAX_RECIPIENTS) =====================
+
+/// Exactly 10 recipients (the cap) is allowed.
+#[test]
+fn test_mint_accepts_exactly_max_recipients() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let (client, _admin) = deploy(&e);
+    let artist = Address::generate(&e);
+
+    // 10 recipients, each 1000 bps -> sums to 10000.
+    let mut recipients: Vec<RoyaltyRecipient> = Vec::new(&e);
+    for _ in 0..10 {
+        recipients.push_back(RoyaltyRecipient {
+            address: Address::generate(&e),
+            share_bps: 1000,
+        });
+    }
+
+    let token_id = client.mint(
+        &artist,
+        &artist,
+        &String::from_str(&e, "ipfs://max"),
+        &1000u32,
+        &recipients,
+    );
+    assert_eq!(client.owner_of(&token_id), artist);
+}
+
+/// 11 recipients is rejected by the cap. The shares are crafted to sum to 10000
+/// with every share positive, so the ONLY reason this can panic is the cap.
+#[test]
+#[should_panic]
+fn test_mint_rejects_more_than_max_recipients() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let (client, _admin) = deploy(&e);
+    let artist = Address::generate(&e);
+
+    let mut recipients: Vec<RoyaltyRecipient> = Vec::new(&e);
+    for _ in 0..10 {
+        recipients.push_back(RoyaltyRecipient {
+            address: Address::generate(&e),
+            share_bps: 900,
+        });
+    }
+    recipients.push_back(RoyaltyRecipient {
+        address: Address::generate(&e),
+        share_bps: 1000,
+    }); // 10*900 + 1000 = 10000, 11 recipients
+
+    client.mint(
+        &artist,
+        &artist,
+        &String::from_str(&e, "ipfs://too-many"),
+        &1000u32,
+        &recipients,
+    );
+}
+
+// ============================ set_registry ============================
+
+/// The owner can repoint the registry; `registry()` reflects the new value.
+#[test]
+fn test_set_registry_updates_value() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let (client, _admin) = deploy(&e);
+
+    let new_registry = Address::generate(&e);
+    client.set_registry(&new_registry);
+    assert_eq!(client.registry(), new_registry);
+}
+
+/// `set_registry` requires the owner's auth (no auth mocked -> panics).
+#[test]
+#[should_panic]
+fn test_set_registry_requires_owner_auth() {
+    let e = Env::default();
+    let (client, _admin) = deploy(&e); // construction needs no auth
+    let new_registry = Address::generate(&e);
+    client.set_registry(&new_registry);
+}
+
+/// Rotating the registry actually rewires the gate: starting from the
+/// placeholder (gate off), pointing at a registry that denies blocks the mint,
+/// and pointing at one that allows lets it through again.
+#[test]
+fn test_set_registry_activates_gate() {
+    let e = Env::default();
+    e.mock_all_auths();
+    let (client, _admin) = deploy(&e);
+    let artist = Address::generate(&e);
+
+    // Gate off (placeholder): mint succeeds.
+    client.mint(
+        &artist,
+        &artist,
+        &String::from_str(&e, "ipfs://gate-off"),
+        &1000u32,
+        &one_recipient(&e, &artist),
+    );
+
+    // Point at a registry that denies everyone: mint is now blocked.
+    let denying = e.register(MockRegistry, (false,));
+    client.set_registry(&denying);
+    assert!(client
+        .try_mint(
+            &artist,
+            &artist,
+            &String::from_str(&e, "ipfs://denied"),
+            &1000u32,
+            &one_recipient(&e, &artist),
+        )
+        .is_err());
+
+    // Point at a registry that allows: mint goes through again.
+    let allowing = e.register(MockRegistry, (true,));
+    client.set_registry(&allowing);
+    let token_id = client.mint(
+        &artist,
+        &artist,
+        &String::from_str(&e, "ipfs://allowed"),
+        &1000u32,
+        &one_recipient(&e, &artist),
+    );
+    assert_eq!(client.owner_of(&token_id), artist);
+}
+
+// ============================== upgrade ==============================
+
+/// `upgrade` requires the owner's auth: with no auth mocked the owner check
+/// panics before any WASM swap is attempted.
+#[test]
+#[should_panic]
+fn test_upgrade_requires_owner_auth() {
+    let e = Env::default();
+    let (client, _admin) = deploy(&e); // construction needs no auth
+    let dummy_hash = BytesN::from_array(&e, &[0u8; 32]);
+    client.upgrade(&dummy_hash);
 }

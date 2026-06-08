@@ -1,35 +1,38 @@
-//! MolotovNFT — contrato NFT de producción del marketplace Molotov.
+//! MolotovNFT — production NFT contract for the Molotov marketplace.
 //!
-//! Tres diferenciales del producto, grabados en el contrato:
-//!   1. Royalties **inmutables**: la config de regalías se fija en el minteo y
-//!      no puede modificarse nunca. No hay setters; los stubs heredables de la
-//!      base panickean con `RoyaltiesImmutableAfterMint`.
-//!   2. Split **multi-wallet**: el royalty se reparte entre N destinatarios,
-//!      cada uno con su porción en basis points (suma = 10000).
-//!   3. Mint **gated** por el ArtistRegistry vía cross-contract. Hasta el
-//!      Paso 7 el registry es un placeholder que desactiva el gate.
+//! Three product differentiators, baked into the contract:
+//!   1. **Immutable** royalties: the royalty config is fixed at mint and can
+//!      never change. There are no setters; the inherited base stubs panic with
+//!      `RoyaltiesImmutableAfterMint`.
+//!   2. **Multi-wallet** split: the royalty is shared among N recipients, each
+//!      with its share in basis points (must sum to 10000).
+//!   3. **Gated** mint via the ArtistRegistry (cross-contract). Until Step 7 the
+//!      registry is a placeholder that disables the gate.
 //!
-//! SEP-50 core (transfer, burn, owner_of, balance, token_uri) viene de la base
-//! OpenZeppelin; `token_uri` se sobreescribe para servir URIs IPFS por token.
+//! SEP-50 core (transfer, burn, owner_of, balance, token_uri) comes from the
+//! OpenZeppelin base; `token_uri` is overridden to serve per-token IPFS URIs.
 
 #![no_std]
 
 use soroban_sdk::{
     contract, contractclient, contracterror, contractevent, contractimpl, contracttype,
-    panic_with_error, Address, Env, String, Vec,
+    panic_with_error, Address, BytesN, Env, String, Vec,
 };
-use stellar_access::ownable::{set_owner, Ownable};
+use stellar_access::ownable::{enforce_owner_auth, set_owner, Ownable};
 use stellar_tokens::non_fungible::{burnable::NonFungibleBurnable, Base, NonFungibleToken};
 
-/// Registry placeholder: contract id all-zeros (contrato inexistente). Mientras
-/// el NFT apunte acá, el gate de artistas está desactivado. Se reemplaza por el
-/// ArtistRegistry real en el Paso 7.
+/// Registry placeholder: an all-zeros contract id (a nonexistent contract).
+/// While the NFT points here the artist gate is disabled. Replaced by the real
+/// ArtistRegistry in Step 7.
 const TEMP_REGISTRY_PLACEHOLDER: &str =
     "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABSC4";
 
 const MIN_ROYALTY_BPS: u32 = 100; // 1%
 const MAX_ROYALTY_BPS: u32 = 1500; // 15%
 const BPS_DENOMINATOR: i128 = 10_000; // 100%
+// Bounds the royalty-split loop: an unbounded loop over a user-supplied list is a
+// gas / DoS vector.
+const MAX_RECIPIENTS: u32 = 10;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -44,9 +47,9 @@ pub enum MolotovError {
     RoyaltiesImmutableAfterMint = 7,
     RoyaltyConfigMissing = 8,
     MathOverflow = 9,
+    TooManyRecipients = 10,
 }
 
-/// Una porción del royalty para un destinatario.
 #[contracttype]
 #[derive(Clone)]
 pub struct RoyaltyRecipient {
@@ -54,7 +57,6 @@ pub struct RoyaltyRecipient {
     pub share_bps: u32,
 }
 
-/// Config de royalty de un token: total en bps + reparto entre destinatarios.
 #[contracttype]
 #[derive(Clone)]
 pub struct RoyaltyConfig {
@@ -62,7 +64,7 @@ pub struct RoyaltyConfig {
     pub recipients: Vec<RoyaltyRecipient>,
 }
 
-/// Evento estructurado emitido al mintear. `token_id` es topic (indexable).
+/// Structured event emitted on mint. `token_id` is a topic (indexable).
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MintedEvent {
@@ -81,8 +83,8 @@ pub enum DataKey {
     Royalty(u32),
 }
 
-/// Interfaz del ArtistRegistry (lo implementa el contrato del Paso 7). Sólo se
-/// usa para generar el client cross-contract `ArtistRegistryClient`.
+/// ArtistRegistry interface (implemented by the Step 7 contract). Only used to
+/// generate the `ArtistRegistryClient` cross-contract client.
 #[contractclient(name = "ArtistRegistryClient")]
 pub trait ArtistRegistryInterface {
     fn is_registered(e: Env, artist: Address) -> bool;
@@ -93,10 +95,10 @@ pub struct MolotovNft;
 
 #[contractimpl]
 impl MolotovNft {
-    /// Inicializa la colección.
+    /// Initializes the collection.
     ///
-    /// `admin` queda como owner SÓLO para upgrades / cambios de treasury, nunca
-    /// para tocar royalties. `registry` es el ArtistRegistry (o el placeholder).
+    /// `admin` is the owner ONLY for upgrades / treasury changes, never to touch
+    /// royalties. `registry` is the ArtistRegistry (or the placeholder).
     pub fn __constructor(
         e: &Env,
         admin: Address,
@@ -105,13 +107,13 @@ impl MolotovNft {
         symbol: String,
     ) {
         set_owner(e, &admin);
-        // base_uri vacío: cada token trae su propia URI IPFS (ver `token_uri`).
+        // Empty base_uri: each token carries its own IPFS URI (see `token_uri`).
         Base::set_metadata(e, String::from_str(e, ""), name, symbol);
         e.storage().instance().set(&DataKey::Registry, &registry);
     }
 
-    /// Mintea un token a `recipient`, atribuido al `artist`, con su URI IPFS y
-    /// su config de royalty inmutable. Devuelve el `token_id` secuencial.
+    /// Mints a token to `recipient`, attributed to `artist`, with its IPFS URI
+    /// and immutable royalty config. Returns the sequential `token_id`.
     pub fn mint(
         e: &Env,
         artist: Address,
@@ -122,10 +124,8 @@ impl MolotovNft {
     ) -> u32 {
         artist.require_auth();
 
-        // 1. Gate: el artista debe estar registrado (salvo placeholder).
         Self::require_registered_artist(e, &artist);
 
-        // 2. Validación del royalty.
         if royalty_bps < MIN_ROYALTY_BPS {
             panic_with_error!(e, MolotovError::RoyaltyTooLow);
         }
@@ -134,6 +134,9 @@ impl MolotovNft {
         }
         if recipients.is_empty() {
             panic_with_error!(e, MolotovError::NoRecipients);
+        }
+        if recipients.len() > MAX_RECIPIENTS {
+            panic_with_error!(e, MolotovError::TooManyRecipients);
         }
         let mut sum: u32 = 0;
         for r in recipients.iter() {
@@ -148,10 +151,9 @@ impl MolotovNft {
             panic_with_error!(e, MolotovError::SharesMustSumTo10000);
         }
 
-        // 3. Mint con id secuencial.
         let token_id = Base::sequential_mint(e, &recipient);
 
-        // 4. Persistir URI + config de royalty (inmutable a partir de acá).
+        // Persist URI + royalty config (immutable from here on).
         e.storage()
             .persistent()
             .set(&DataKey::TokenUri(token_id), &token_uri);
@@ -161,7 +163,6 @@ impl MolotovNft {
             .persistent()
             .set(&DataKey::Royalty(token_id), &config);
 
-        // 5. Evento estructurado.
         MintedEvent {
             token_id,
             artist,
@@ -174,12 +175,12 @@ impl MolotovNft {
         token_id
     }
 
-    /// Reparto del royalty para una venta: lista de `(recipient, monto_stroops)`.
-    /// El marketplace (Paso 8) la usa para distribuir.
+    /// Royalty distribution for a sale: a list of `(recipient, amount_stroops)`.
+    /// The marketplace consumes it to distribute proceeds.
     ///
-    /// `total = sale_price * total_bps / 10000`; cada porción es
-    /// `total * share_bps / 10000`. El último destinatario absorbe el dust de
-    /// redondeo para garantizar que la suma de montos == total.
+    /// `total = sale_price * total_bps / 10000`; each share is
+    /// `total * share_bps / 10000`. The last recipient absorbs the rounding dust
+    /// so that the sum of amounts == total.
     pub fn get_royalty_info(e: &Env, token_id: u32, sale_price: i128) -> Vec<(Address, i128)> {
         let config = Self::royalty_config(e, token_id);
         let total_amount = mul_div(e, sale_price, config.total_bps as i128, BPS_DENOMINATOR);
@@ -190,7 +191,7 @@ impl MolotovNft {
         for i in 0..n {
             let r = config.recipients.get(i).unwrap();
             let amount = if i == n - 1 {
-                // último: el remanente, así la suma cierra exacto contra `total`.
+                // last: the remainder, so the sum closes exactly against `total`.
                 total_amount
                     .checked_sub(distributed)
                     .unwrap_or_else(|| panic_with_error!(e, MolotovError::MathOverflow))
@@ -206,18 +207,36 @@ impl MolotovNft {
         out
     }
 
-    /// Royalty total en bps de un token (lectura).
     pub fn royalty_bps(e: &Env, token_id: u32) -> u32 {
         Self::royalty_config(e, token_id).total_bps
     }
 
-    /// Dirección del ArtistRegistry configurado.
     pub fn registry(e: &Env) -> Address {
         e.storage().instance().get(&DataKey::Registry).unwrap()
     }
 
-    // --- Guardas de inmutabilidad: el royalty NUNCA cambia post-mint. ---
-    // Stubs por si alguien intenta el camino estándar ERC2981; siempre panickean.
+    /// Point the mint gate at a new ArtistRegistry. Owner-gated.
+    ///
+    /// Required to activate the gate (swap out the placeholder) or rotate the
+    /// registry without redeploying the NFT.
+    pub fn set_registry(e: &Env, new_registry: Address) {
+        enforce_owner_auth(e);
+        e.storage()
+            .instance()
+            .set(&DataKey::Registry, &new_registry);
+    }
+
+    /// Upgrade the contract WASM in place (SEP-49). Owner-gated.
+    ///
+    /// Same address, same data, new code. The per-token royalty config stays
+    /// immutable — no code path here rewrites it.
+    pub fn upgrade(e: &Env, new_wasm_hash: BytesN<32>) {
+        enforce_owner_auth(e);
+        e.deployer().update_current_contract_wasm(new_wasm_hash);
+    }
+
+    // --- Immutability guards: the royalty NEVER changes post-mint. ---
+    // Stubs in case someone tries the standard ERC2981 path; they always panic.
 
     pub fn set_default_royalty(e: &Env, _receiver: Address, _basis_points: u32) {
         panic_with_error!(e, MolotovError::RoyaltiesImmutableAfterMint);
@@ -232,7 +251,7 @@ impl MolotovNft {
         panic_with_error!(e, MolotovError::RoyaltiesImmutableAfterMint);
     }
 
-    // --- internos ---
+    // --- internals ---
 
     fn royalty_config(e: &Env, token_id: u32) -> RoyaltyConfig {
         e.storage()
@@ -245,7 +264,7 @@ impl MolotovNft {
         let registry: Address = e.storage().instance().get(&DataKey::Registry).unwrap();
         let placeholder = Address::from_str(e, TEMP_REGISTRY_PLACEHOLDER);
         if registry == placeholder {
-            return; // gate desactivado hasta el Paso 7
+            return; // gate disabled until Step 7
         }
         if !ArtistRegistryClient::new(e, &registry).is_registered(artist) {
             panic_with_error!(e, MolotovError::ArtistNotRegistered);
@@ -257,9 +276,9 @@ impl MolotovNft {
 impl NonFungibleToken for MolotovNft {
     type ContractType = Base;
 
-    /// Override: devuelve la URI IPFS guardada por token (no base_uri + id).
+    /// Override: returns the per-token IPFS URI stored at mint (not base_uri + id).
     fn token_uri(e: &Env, token_id: u32) -> String {
-        let _ = Base::owner_of(e, token_id); // panickea si el token no existe
+        let _ = Base::owner_of(e, token_id); // panics if the token does not exist
         e.storage()
             .persistent()
             .get(&DataKey::TokenUri(token_id))
@@ -273,7 +292,7 @@ impl NonFungibleBurnable for MolotovNft {}
 #[contractimpl(contracttrait)]
 impl Ownable for MolotovNft {}
 
-/// `a * b / denom` con checked mul/div; panickea en overflow.
+/// `a * b / denom` with checked mul/div; panics on overflow.
 fn mul_div(e: &Env, a: i128, b: i128, denom: i128) -> i128 {
     a.checked_mul(b)
         .unwrap_or_else(|| panic_with_error!(e, MolotovError::MathOverflow))

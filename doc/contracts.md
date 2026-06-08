@@ -51,16 +51,19 @@ para royalties.
 | Campo | Valor |
 |---|---|
 | Network | TESTNET (`Test SDF Network ; September 2015`) |
-| Contract ID | `CCRGD3FAIZY4VRP55QFMFFSSAEKYMZE7LB5EF6OXPVYVYNVXEC7UFMT4` |
-| WASM hash | `9996e8c52d511adfc9087eff7c7f0a009b55f2d5cc7038c62d60339063b95723` |
+| Contract ID | `CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS` |
+| WASM hash | `34f38178eabf6955b389c5b824151bb11d29e4b2fd484aa1bfdb97428b9eebb9` |
 | Admin/Owner | `GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM` |
 | Registry | `CAAAA…BSC4` (placeholder all-zeros → gate OFF hasta Paso 7) |
 | Metadata | name `Molotov` · symbol `MOLO` |
 
-Explorer: <https://stellar.expert/explorer/testnet/contract/CCRGD3FAIZY4VRP55QFMFFSSAEKYMZE7LB5EF6OXPVYVYNVXEC7UFMT4>
+> Redeploy de la Fase 0 (cap de recipients + `set_registry` + `upgrade`). El
+> deploy anterior `CCRGD3F…FMT4` queda obsoleto.
+
+Explorer: <https://stellar.expert/explorer/testnet/contract/CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS>
 
 Bindings TS: `packages/stellar-client/src/molotov-nft/` (sha256 `src/index.ts`:
-`e9d95adacb034a9dfea2279cbef3ec38f8e5cb3742768d6aca1df5fbd68f572b`).
+`9fb6af4a98aeaf509af17001b967f78b4fdfca8c5aed6b37213833edb49ae902`).
 
 ### Decisiones técnicas
 
@@ -85,7 +88,7 @@ Bindings TS: `packages/stellar-client/src/molotov-nft/` (sha256 `src/index.ts`:
 Desde `contracts/`:
 
 ```bash
-cargo test                 # 12 tests, todos verdes
+cargo test                 # 18 tests, todos verdes
 stellar contract build     # -> target/wasm32v1-none/release/molotov_nft.wasm
 
 ADMIN=$(stellar keys address molotov-dev)
@@ -101,7 +104,7 @@ stellar contract deploy \
 ### Smoke test en vivo (verificado)
 
 ```bash
-ID=CCRGD3FAIZY4VRP55QFMFFSSAEKYMZE7LB5EF6OXPVYVYNVXEC7UFMT4
+ID=CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS
 ADMIN=$(stellar keys address molotov-dev)
 
 # mint 10% royalty, 1 recipient (100%)
@@ -115,7 +118,7 @@ stellar contract invoke --id $ID --source molotov-dev --network testnet -- \
 # -> [["G…","1000000"]]  (10% de 10.000.000 stroops)
 ```
 
-### Tests (`cargo test` — 12/12 verdes)
+### Tests (`cargo test` — 18/18 verdes)
 
 | # | Test | Resultado |
 |---|---|---|
@@ -131,6 +134,17 @@ stellar contract invoke --id $ID --source molotov-dev --network testnet -- \
 | 9b | `test_set_token_royalty_is_immutable` (panic) | ✅ |
 | 10 | `test_burn_by_non_owner_fails` (panic) | ✅ |
 | + | `test_mint_accepts_registered_artist` (gate deja pasar) | ✅ |
+
+Phase 0 additions:
+
+| # | Test | Result |
+|---|---|---|
+| 11 | `test_mint_accepts_exactly_max_recipients` (10 recipients, the cap) | ✅ |
+| 12 | `test_mint_rejects_more_than_max_recipients` (11 → panic `TooManyRecipients`) | ✅ |
+| 13 | `test_set_registry_updates_value` (owner repoints; `registry()` reflects it) | ✅ |
+| 14 | `test_set_registry_requires_owner_auth` (no auth → panic) | ✅ |
+| 15 | `test_set_registry_activates_gate` (placeholder → deny → allow rewires the gate) | ✅ |
+| 16 | `test_upgrade_requires_owner_auth` (no auth → panic before WASM swap) | ✅ |
 
 > Nota: el evento `MintedEvent` se verifica **en vivo** (smoke test), no en unit
 > tests — el env de soroban-sdk 25.3 no surfacea eventos vía `events().all()`.

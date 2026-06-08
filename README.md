@@ -13,7 +13,7 @@ Editorial / gallery aesthetic, intentionally anti-crypto-bro.
 ## Status
 
 Beta on Stellar testnet. Live NFT contract:
-[`CCRGD3F…FMT4`](https://stellar.expert/explorer/testnet/contract/CCRGD3FAIZY4VRP55QFMFFSSAEKYMZE7LB5EF6OXPVYVYNVXEC7UFMT4).
+[`CBS6UQE…7XWS`](https://stellar.expert/explorer/testnet/contract/CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS).
 
 ## Stack
 

@@ -510,3 +510,83 @@ fn test_mint_and_read_extend_persistent_ttl() {
         assert!(roy_ttl >= TTL_BUMP_AMOUNT - 16, "royalty ttl not re-bumped: {}", roy_ttl);
     });
 }
+
+// ================= Property-based: royalty / split / dust =================
+
+use proptest::prelude::*;
+
+prop_compose! {
+    /// A valid royalty split: 1..=MAX_RECIPIENTS shares, each >= 1, summing to
+    /// exactly 10000. Built by partitioning 10000 at distinct interior cut points,
+    /// which guarantees every share is positive and the total is exact.
+    fn arb_shares()(n in 1usize..=10usize)
+                  (cuts in prop::collection::btree_set(1u32..10_000u32, n - 1))
+                  -> std::vec::Vec<u32> {
+        let mut shares = std::vec::Vec::new();
+        let mut prev = 0u32;
+        for c in &cuts {
+            shares.push(c - prev);
+            prev = *c;
+        }
+        shares.push(10_000 - prev);
+        shares
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// For any valid royalty (bps in [100,1500]), any valid split, and any sale
+    /// price, the payouts:
+    ///   - have one entry per recipient,
+    ///   - are all non-negative,
+    ///   - match `total * share_bps / 10000` for every recipient but the last,
+    ///   - sum to exactly `total = sale_price * total_bps / 10000` (the last
+    ///     recipient absorbs the rounding dust — no value is created or lost).
+    #[test]
+    fn prop_royalty_payouts_sum_to_total_with_dust_on_last(
+        shares in arb_shares(),
+        royalty_bps in 100u32..=1500u32,
+        sale_price in 0i128..=1_000_000_000_000_000i128,
+    ) {
+        let e = Env::default();
+        e.mock_all_auths();
+        let (client, _admin) = deploy(&e);
+        let artist = Address::generate(&e);
+
+        let mut recipients: Vec<RoyaltyRecipient> = Vec::new(&e);
+        for s in &shares {
+            recipients.push_back(RoyaltyRecipient {
+                address: Address::generate(&e),
+                share_bps: *s,
+            });
+        }
+
+        let token_id = client.mint(
+            &artist,
+            &artist,
+            &String::from_str(&e, "ipfs://prop"),
+            &royalty_bps,
+            &recipients,
+        );
+
+        let info = client.get_royalty_info(&token_id, &sale_price);
+        // Same order of operations as the contract: multiply, then divide.
+        let total = sale_price * royalty_bps as i128 / 10_000;
+
+        prop_assert_eq!(info.len(), shares.len() as u32);
+
+        let n = info.len();
+        let mut sum = 0i128;
+        for i in 0..n {
+            let (_, amount) = info.get(i).unwrap();
+            prop_assert!(amount >= 0);
+            if i < n - 1 {
+                let expected = total * shares[i as usize] as i128 / 10_000;
+                prop_assert_eq!(amount, expected);
+            }
+            sum += amount;
+        }
+        prop_assert_eq!(sum, total);
+    }
+}

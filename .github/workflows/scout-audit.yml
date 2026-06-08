@@ -39,7 +39,9 @@ jobs:
             scout-audit-${{ runner.os }}-
 
       - name: Install cargo-scout-audit
-        run: cargo install cargo-scout-audit --locked
+        # Reuse the cached binary when present; cargo install errors (instead of
+        # no-op'ing) if ~/.cargo/bin already has it on a cache hit.
+        run: command -v cargo-scout-audit >/dev/null || cargo install cargo-scout-audit --locked
 
       - name: Run Scout
         run: cargo scout-audit

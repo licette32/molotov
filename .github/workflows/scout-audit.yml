@@ -1,0 +1,45 @@
+name: scout-audit
+
+# Static analysis of the Soroban contracts with CoinFabrik Scout. Runs on every
+# push (and PR) that touches contracts/, so a regression in the on-chain code is
+# caught before it can be deployed.
+on:
+  push:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/scout-audit.yml"
+  pull_request:
+    paths:
+      - "contracts/**"
+      - ".github/workflows/scout-audit.yml"
+  workflow_dispatch:
+
+jobs:
+  scout:
+    name: cargo scout-audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: contracts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry and scout build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+          key: scout-audit-${{ runner.os }}-${{ hashFiles('contracts/**/Cargo.toml') }}
+          restore-keys: |
+            scout-audit-${{ runner.os }}-
+
+      - name: Install cargo-scout-audit
+        run: cargo install cargo-scout-audit --locked
+
+      - name: Run Scout
+        run: cargo scout-audit

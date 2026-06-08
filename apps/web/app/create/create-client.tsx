@@ -6,7 +6,7 @@ import { MintForm } from "@/components/mint-form";
 import { useWallet } from "@/hooks/use-wallet";
 import { useI18n } from "@/lib/i18n";
 
-export function CrearClient() {
+export function CreateClient() {
   const { isConnected } = useWallet();
   const { t } = useI18n();
 

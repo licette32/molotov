@@ -49,7 +49,7 @@ credencial nunca llega al browser. Pinata usa un **JWT** simple (no UCAN).
 
 ## Probar
 
-- Conectá Freighter en testnet, andá a `/crear`, subí una imagen y minteá.
+- Conectá Freighter en testnet, andá a `/create`, subí una imagen y minteá.
 - Si el upload falla, mirá la consola del server: el route handler loguea el
   error real (`[ipfs/upload]`); en pantalla el usuario ve un mensaje editorial.
 

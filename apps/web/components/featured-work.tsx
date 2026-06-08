@@ -65,7 +65,7 @@ export function FeaturedWork() {
 
       <div className="mt-12">
         <Link
-          href="/crear"
+          href="/create"
           className="inline-flex h-12 items-center justify-center rounded-md bg-[#0178DE] px-6 text-[15px] font-medium text-white transition-colors hover:bg-[#3493E5] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F5F4ED]"
         >
           {t("common.mintFirst")}

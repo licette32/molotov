@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CrearClient } from "./crear-client";
+import { CreateClient } from "./create-client";
 
 // Per-route metadata is static (SSR snapshot). The I18nProvider may update
 // document.title on locale switch from the layout dictionary; for now we ship
@@ -10,6 +10,6 @@ export const metadata: Metadata = {
     "Subí tu obra a Stellar con regalías inmutables grabadas en el contrato.",
 };
 
-export default function CrearPage() {
-  return <CrearClient />;
+export default function CreatePage() {
+  return <CreateClient />;
 }

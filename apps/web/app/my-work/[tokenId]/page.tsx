@@ -28,7 +28,7 @@ type Artwork = {
   royaltyPct: string;
 };
 
-export default function MiObraPage() {
+export default function MyWorkPage() {
   const params = useParams<{ tokenId: string }>();
   const tokenId = Number(params.tokenId);
   const { locale, t } = useI18n();
@@ -158,7 +158,7 @@ export default function MiObraPage() {
                   {t("artwork.notFound")}
                 </p>
                 <Link
-                  href="/crear"
+                  href="/create"
                   className="mt-8 font-[family-name:var(--font-geist-mono)] text-sm text-[#0178DE] underline-offset-4 hover:underline"
                 >
                   {t("artwork.mintOne")}
@@ -233,7 +233,7 @@ export default function MiObraPage() {
                   {t("artwork.certificate")} {t("common.externalArrow")}
                 </a>
                 <Link
-                  href="/crear"
+                  href="/create"
                   className="font-[family-name:var(--font-geist-mono)] text-sm text-[#F5F4ED]/70 underline-offset-4 transition-colors hover:text-[#F5F4ED] hover:underline"
                 >
                   {t("artwork.mintAnother")}

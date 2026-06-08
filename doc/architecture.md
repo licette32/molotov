@@ -155,16 +155,16 @@ sequenceDiagram
 flowchart LR
   subgraph Public["Public"]
     Landing["/"]
-    Obras["/obras"]
-    Obra["/obra/[id]"]
-    Artista["/a/[address]"]
-    Manifiesto["/manifiesto"]
+    Works["/works"]
+    Work["/work/[id]"]
+    Artist["/artist/[address]"]
+    Manifesto["/manifesto"]
   end
   subgraph Creator["Creator (wallet/passkey)"]
-    Crear["/crear"]
-    MiObra["/mi-obra/[tokenId]"]
-    Listar["/obra/[id]/listar"]
-    Panel["/panel"]
+    Create["/create"]
+    MyWork["/my-work/[tokenId]"]
+    List["/work/[id]/list"]
+    Dashboard["/dashboard"]
   end
   subgraph APIs["API routes"]
     Pin["/api/ipfs"]
@@ -172,25 +172,25 @@ flowchart LR
     OG["/api/og/[id]"]
   end
 
-  Landing --> Obras
-  Obras --> Obra
-  Obra --> Artista
-  Obra --> Listar
-  Crear --> MiObra
-  Panel --> Crear
+  Landing --> Works
+  Works --> Work
+  Work --> Artist
+  Work --> List
+  Create --> MyWork
+  Dashboard --> Create
 ```
 
 | Route | Type | Description |
 | --- | --- | --- |
 | `/` | Public | Landing (hero, economy-flow, activity feed, manifesto). |
-| `/obras` | Public | Browse and filter works (reads Supabase). |
-| `/obra/[id]` | Public | Work page: buy, share (referral link), transfer, burn, provenance. |
-| `/a/[address]` | Public | Artist profile: About · Created · Owned · Collections · Activity. |
-| `/manifiesto` | Public | Editorial manifesto page. |
-| `/crear` | Creator | Mint flow: upload → IPFS → royalty/split → sign mint. |
-| `/mi-obra/[tokenId]` | Creator | Certificate page with on-chain + IPFS metadata. |
-| `/obra/[id]/listar` | Creator | List for primary or secondary sale (price, currency, split, referral). |
-| `/panel` | Creator | Creator dashboard (works, listings, activity). |
+| `/works` | Public | Browse and filter works (reads Supabase). |
+| `/work/[id]` | Public | Work page: buy, share (referral link), transfer, burn, provenance. |
+| `/artist/[address]` | Public | Artist profile: About · Created · Owned · Collections · Activity. |
+| `/manifesto` | Public | Editorial manifesto page. |
+| `/create` | Creator | Mint flow: upload → IPFS → royalty/split → sign mint. |
+| `/my-work/[tokenId]` | Creator | Certificate page with on-chain + IPFS metadata. |
+| `/work/[id]/list` | Creator | List for primary or secondary sale (price, currency, split, referral). |
+| `/dashboard` | Creator | Creator dashboard (works, listings, activity). |
 | `/api/ipfs` | API | Server-side Pinata pinning (keeps the JWT off the client). |
 | `/api/indexer` | API | Cron/worker that ingests on-chain events into Supabase. |
 | `/api/og/[id]` | API | Open Graph images for shared work links. |
@@ -255,12 +255,12 @@ molotov/
 │   ├── web/                       # Next.js app
 │   │   ├── app/
 │   │   │   ├── page.tsx           # Landing
-│   │   │   ├── obras/             # Browse (reads Supabase)
-│   │   │   ├── obra/[id]/         # Work page + listar/ subroute
-│   │   │   ├── a/[address]/       # Artist profile (tabs)
-│   │   │   ├── crear/             # Mint flow
-│   │   │   ├── mi-obra/[tokenId]/ # Certificate
-│   │   │   ├── panel/             # Creator dashboard
+│   │   │   ├── works/             # Browse (reads Supabase)
+│   │   │   ├── work/[id]/         # Work page + list/ subroute
+│   │   │   ├── artist/[address]/  # Artist profile (tabs)
+│   │   │   ├── create/            # Mint flow
+│   │   │   ├── my-work/[tokenId]/ # Certificate
+│   │   │   ├── dashboard/         # Creator dashboard
 │   │   │   └── api/
 │   │   │       ├── ipfs/          # Pinata pin (server-side JWT)
 │   │   │       ├── indexer/       # Event ingestion cron
@@ -415,6 +415,13 @@ would break composability. This is the accepted industry standard, stated openly
 
 ## 8. Onboarding and wallets
 
+**Identity model — wallet-first.** Molotov has no email/password accounts: there is
+no server-side auth, no password to store, no session to forge. Identity *is* the
+Stellar address, so "log in" means "connect a wallet" — this path is already built
+(Stellar Wallets Kit, §8). Easy passkey sign-up that mints an invisible smart wallet
+for newcomers (Passkey Kit + Launchtube) is **planned**, not yet built; until then,
+onboarding assumes the user already has a wallet.
+
 Two paths, because the audience splits between crypto-native artists and newcomers
 arriving from social media.
 
@@ -497,7 +504,7 @@ flowchart LR
 ## 10. Sharing and referrals
 
 Sharing is the growth engine, and the referral is on-chain. A share link deep-links to
-the work with the referrer's address: `/obra/[id]?ref=<address>`. When a buy carries a
+the work with the referrer's address: `/work/[id]?ref=<address>`. When a buy carries a
 `referrer`, the marketplace pays `referral_bps` to that address at sale time. Social
 traffic lands directly on the work (not the landing), which serves the
 "social → work → easy sign-up → collect" path. Open Graph images are generated at

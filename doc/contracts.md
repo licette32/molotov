@@ -248,3 +248,88 @@ End-to-end gate cycle against the live NFT (`CBS6UQE…7XWS`):
 > Same caveat as the NFT: `ArtistRegistered` / `ArtistRevoked` events are verified
 > **live** (smoke test), not in unit tests — soroban-sdk 25.3's test env does not
 > surface contract events via `events().all()`.
+
+---
+
+## Marketplace (Phase 2)
+
+Escrow marketplace: the NFT moves into the contract on `list` and out to the buyer
+on `buy`; the contract **never custodies funds** (it orchestrates buyer→recipient
+transfers and holds a zero balance after every sale). Money model (objkt): `fee`,
+`referral` and `royalty` are computed on the gross price `P`; the referral is carved
+**out of** the fee (`treasury = fee − referral`, `referral_bps ≤ fee_bps`). Two
+paths fixed at `list`: primary (`primary_split = Some`, proceeds split across the
+artist's wallets) and secondary (`None`, royalty via the NFT + remainder to the
+seller). Open editions sell pre-minted inventory through with an `ends_at` window.
+Access mirrors the NFT/registry: Ownable, owner-gated `set_allowed_currency` /
+`upgrade`.
+
+### Deploy actual (testnet)
+
+| Campo | Valor |
+|---|---|
+| Network | TESTNET (`Test SDF Network ; September 2015`) |
+| Contract ID | `CB6T6DOYV2JCD36ZE43ESXNGCL2GBDARCZNRVYQWOXGTZNJBWB72K7DU` |
+| WASM hash | `7a332aa81eea6bacd15652383df5a2951fb4377a33d263cb037789d44deea6e1` |
+| Admin/Owner | `GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM` (`molotov-dev`) |
+| fee_bps | `250` (2.5%) |
+| Treasury | `GD2N45ROUXL32K3STXUWS4GLBFJXWLONHTQXHSNRAXXAL2KHFRC3KPHV` |
+| Allowed currency | native XLM SAC `CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC` |
+
+Explorer: <https://stellar.expert/explorer/testnet/contract/CB6T6DOYV2JCD36ZE43ESXNGCL2GBDARCZNRVYQWOXGTZNJBWB72K7DU>
+
+Bindings TS: `packages/stellar-client/src/molotov-marketplace/` (sha256 `src/index.ts`:
+`94b549c7394cccf108578c4ab48be22f73b1d967fc70d4912e13976e4c55ddd2`).
+
+### Reproducir el deploy
+
+Desde `contracts/`:
+
+```bash
+cargo test -p molotov-marketplace   # 53 tests, todos verdes
+stellar contract build              # -> target/wasm32v1-none/release/molotov_marketplace.wasm
+
+ADMIN=$(stellar keys address molotov-dev)
+TREASURY=$(stellar keys address mkt-treasury)
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/molotov_marketplace.wasm \
+  --source molotov-dev --network testnet \
+  -- --admin "$ADMIN" --fee_bps 250 --treasury "$TREASURY"
+
+# Allow the native XLM SAC as a payment currency (without this, buy fails).
+stellar contract invoke --id <MARKETPLACE> --source molotov-dev --network testnet --send=yes \
+  -- set_allowed_currency \
+  --currency CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC --allowed true
+```
+
+### Smoke test en vivo (verificado, end-to-end con NFT + SAC reales)
+
+Secondary sale, P = 1_000_000_000 stroops (100 XLM), royalty 10%, fee 2.5%, no referrer.
+Distinct accounts so balances are unambiguous (treasury pays no gas).
+
+```
+register(artist)                      -> ArtistRegistered (gate ON)
+NFT.mint(artist, recipient=seller)    -> token_id 2, royalty 10% to artist
+Marketplace.list(seller, FixedPrice)  -> listing_id 0, NFT escrowed into the contract
+Marketplace.buy(buyer, 0)             -> Sold { royalty_paid 100M, referral_paid 0, fee_paid 25M }
+
+balance deltas across the buy:
+  artist   +100_000_000   (10% royalty, paid via the NFT's get_royalty_info)
+  treasury  +25_000_000   (2.5% fee)
+  seller   +875_000_000   (remainder)
+  marketplace residual 0  ;  100M + 25M + 875M = 1_000_000_000 = P
+  NFT owner_of(2) == buyer
+```
+
+This is the first exercise of the real cross-contract calls into the deployed NFT
+(`get_royalty_info` + `transfer`), which the unit tests' mock NFT does not cover.
+
+### Tests (`cargo test -p molotov-marketplace` — 53/53 verdes)
+
+Property-based money conservation P1–P18 against the pure `distribute` (incl. extreme
+`P`, dust, referral-out-of-fee), concrete stroop cases, the objkt reference example,
+and contract-level `buy`/`list`/`cancel`/open-edition (escrow, residual 0, CEI,
+allowlist, self-referral, `Auction` reserved, `ends_at` expiry, sequential ids,
+auth gates). Events `ListingCreated` / `Sold` / `ListingCancelled` are asserted in
+unit tests via `to_xdr` (soroban-sdk 25.3 `ContractEvents`). `cargo-mutants`: **0
+survivors** on the money math, `buy`, `list`, `cancel` and the privileged auth gates.

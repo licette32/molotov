@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./molotov-nft": "./src/molotov-nft/src/index.ts"
+    "./molotov-nft": "./src/molotov-nft/src/index.ts",
+    "./molotov-marketplace": "./src/molotov-marketplace/src/index.ts"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^14.6.1"

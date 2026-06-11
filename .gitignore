@@ -43,3 +43,7 @@ Thumbs.db
 
 # Guia de diseno base (referencia externa, no publicar)
 apps/web/.agents/skills/design-system/SKILL.md
+
+# cargo-mutants output
+mutants.out/
+mutants.out.old/

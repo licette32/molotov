@@ -1008,6 +1008,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "molotov-marketplace"
+version = "0.1.0"
+dependencies = [
+ "proptest",
+ "soroban-sdk",
+ "stellar-access",
+]
+
+[[package]]
 name = "molotov-nft"
 version = "0.1.0"
 dependencies = [

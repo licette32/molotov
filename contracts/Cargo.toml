@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["nft"]
+members = ["nft", "artist-registry"]
 
 [workspace.package]
 edition = "2021"

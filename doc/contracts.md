@@ -54,7 +54,7 @@ para royalties.
 | Contract ID | `CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS` |
 | WASM hash | `f67053ba9957714ff9b58bef1046c1286ae49ed30568df50d76a5ddef083ad87` |
 | Admin/Owner | `GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM` |
-| Registry | `CAAAA…BSC4` (placeholder all-zeros → gate OFF hasta Paso 7) |
+| Registry | `CC37LTUP…U533` (real ArtistRegistry → gate **ON**; was the all-zeros placeholder, wired via `set_registry` — see ArtistRegistry below) |
 | Metadata | name `Molotov` · symbol `MOLO` |
 
 > Redeploy de la Fase 0 (cap de recipients + `set_registry` + `upgrade`). El
@@ -73,13 +73,12 @@ Bindings TS: `packages/stellar-client/src/molotov-nft/` (sha256 `src/index.ts`:
 
 ### Decisiones técnicas
 
-- **Mock del Registry (a revisar para Paso 7):** el gate de artistas es una
-  llamada cross-contract `ArtistRegistryClient::is_registered(artist)`. Mientras
-  el registry sea el placeholder `TEMP_REGISTRY_PLACEHOLDER`
-  (`CAAAA…BSC4`, contract id all-zeros), el gate se **desactiva** (mint abierto).
-  En el Paso 7 se deploya el ArtistRegistry real y se redeploya el NFT pasándolo
-  como `--registry`; ahí el gate queda activo. La interfaz ya está lista
-  (`#[contractclient(name = "ArtistRegistryClient")]`).
+- **Registry gate (now active):** the artist gate is a cross-contract call
+  `ArtistRegistryClient::is_registered(artist)`. The NFT shipped pointing at the
+  all-zeros placeholder `TEMP_REGISTRY_PLACEHOLDER` (`CAAAA…BSC4`), which
+  **disables** the gate. The real ArtistRegistry is now deployed and wired in
+  place via `set_registry` (owner-gated, no NFT redeploy needed): the gate is
+  **ON** — only registered artists can mint. See the ArtistRegistry section below.
 - **Royalty math:** `total = sale_price * total_bps / 10000`; cada porción
   `total * share_bps / 10000`. El **último** destinatario absorbe el dust de
   redondeo para que la suma cierre exacto. Todas las multiplicaciones usan
@@ -159,3 +158,93 @@ Phase 0 additions:
 
 El scaffold del Paso 4 (`CB3OUQ…CRJLA2`, royalties mutables vía extensión OZ)
 queda obsoleto y reemplazado por este contrato.
+
+---
+
+## ArtistRegistry (the minting gate — Phase 1)
+
+Admin-curated allowlist of the artists allowed to mint on `MolotovNft`. The NFT
+calls `is_registered(artist)` cross-contract before every mint; only the contract
+owner (admin / curator) can `register` or `revoke`. Access mirrors the NFT
+exactly: a single owner set at construction (`stellar-access` Ownable),
+privileged calls gated by `enforce_owner_auth`. Registration state is a per-artist
+persistent flag, kept alive with the same ~30-day TTL discipline the NFT uses for
+its royalty/URI entries (`register` and a registered-read both bump the TTL;
+`revoke` removes the entry to free rent).
+
+Surface (architecture.md §5.2): `__constructor(admin)`, `register(artist)`,
+`revoke(artist)`, `is_registered(artist) -> bool`, `upgrade(new_wasm_hash)`.
+Events `ArtistRegistered` / `ArtistRevoked` (topic `artist`).
+
+### Deploy actual (testnet)
+
+| Campo | Valor |
+|---|---|
+| Network | TESTNET (`Test SDF Network ; September 2015`) |
+| Contract ID | `CC37LTUPS5WLNBQSVNJJGBMZK4QCUJ76EFGW4RGY7XNVLKFKXCRGU533` |
+| WASM hash | `6953b5496801e8b103947bde2ed05f0f01f75ac0bdbaa92e8c60481a1b2bd3fa` |
+| Admin/Owner | `GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM` |
+
+Explorer: <https://stellar.expert/explorer/testnet/contract/CC37LTUPS5WLNBQSVNJJGBMZK4QCUJ76EFGW4RGY7XNVLKFKXCRGU533>
+
+> The NFT gate is wired to this registry via `set_registry` (no NFT redeploy):
+> `NFT.registry()` returns `CC37LTUP…U533`, gate **ON**.
+
+### Reproducir el deploy
+
+Desde `contracts/`:
+
+```bash
+cargo test -p molotov-artist-registry   # 10 tests, all green
+stellar contract build                  # -> target/wasm32v1-none/release/molotov_artist_registry.wasm
+
+ADMIN=$(stellar keys address molotov-dev)
+stellar contract deploy \
+  --wasm target/wasm32v1-none/release/molotov_artist_registry.wasm \
+  --source molotov-dev --network testnet \
+  -- \
+  --admin "$ADMIN"
+
+# Wire the NFT gate to the real registry (owner-gated, in place):
+NFT=CBS6UQE542PLU54SVUIK76EKWUJ3CNPOQ35IB4WXKF3BU6YDIBEC7XWS
+REGISTRY=CC37LTUPS5WLNBQSVNJJGBMZK4QCUJ76EFGW4RGY7XNVLKFKXCRGU533
+stellar contract invoke --id $NFT --source molotov-dev --network testnet -- \
+  set_registry --new_registry $REGISTRY
+```
+
+### Smoke test en vivo (verificado)
+
+End-to-end gate cycle against the live NFT (`CBS6UQE…7XWS`):
+
+```
+1. is_registered(admin)  -> false
+2. mint (unregistered)   -> FAIL  Error(Contract, #6) ArtistNotRegistered  (gate denies)
+3. register(admin)       -> event ArtistRegistered
+4. is_registered(admin)  -> true
+5. mint (registered)     -> token_id 1, event MintedEvent                  (gate allows)
+6. revoke(admin)         -> event ArtistRevoked
+7. is_registered(admin)  -> false
+8. mint (revoked)        -> FAIL  Error(Contract, #6) ArtistNotRegistered  (gate denies)
+```
+
+> After the smoke test the dev account was re-registered, so testnet minting works
+> for the next phase (Marketplace).
+
+### Tests (`cargo test -p molotov-artist-registry` — 10/10 verdes)
+
+| # | Test | Result |
+|---|---|---|
+| 1 | `test_unregistered_artist_reads_false` (fresh registry, no panic) | ✅ |
+| 2 | `test_register_marks_artist` (owner registers; reflected) | ✅ |
+| 3 | `test_register_is_idempotent` (double register stays registered) | ✅ |
+| 4 | `test_register_is_scoped_per_artist` (one artist ≠ another) | ✅ |
+| 5 | `test_register_requires_owner_auth` (no auth → panic) | ✅ |
+| 6 | `test_revoke_clears_artist` (register → revoke → false) | ✅ |
+| 7 | `test_revoke_unregistered_is_noop` (revoke unknown stays false) | ✅ |
+| 8 | `test_revoke_requires_owner_auth` (no auth → panic) | ✅ |
+| 9 | `test_upgrade_requires_owner_auth` (no auth → panic before WASM swap) | ✅ |
+| 10 | `test_register_and_read_extend_persistent_ttl` (register + read bump TTL) | ✅ |
+
+> Same caveat as the NFT: `ArtistRegistered` / `ArtistRevoked` events are verified
+> **live** (smoke test), not in unit tests — soroban-sdk 25.3's test env does not
+> surface contract events via `events().all()`.

@@ -7,11 +7,15 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "icons:gen": "node scripts/generate-pwa-icons.mjs"
+    "icons:gen": "node scripts/generate-pwa-icons.mjs",
+    "test": "vitest run --reporter=verbose",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.7.0",
     "@molotov/stellar-client": "workspace:*",
+    "@stellar/stellar-sdk": "14.6.1",
+    "@supabase/supabase-js": "^2.45.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",
@@ -33,6 +37,7 @@
     "eslint-config-next": "16.2.6",
     "sharp": "^0.34.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.0.0"
   }
 }

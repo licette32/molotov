@@ -72,7 +72,7 @@ async function fetchTokenUri(tokenId: number): Promise<string> {
     const contract = new Contract(NFT_ID)
     // Any account works as source for a read-only simulation.
     const account = new Account(
-      'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN',
+      'GANXCETUVUUILGJPVEZWM7EH66IZM5OICUPMNUWNXKIBRK425MUKZERM',
       '0',
     )
     const tx = new TransactionBuilder(account, {
@@ -264,13 +264,12 @@ export async function pollOnce(): Promise<PollResult> {
   if (lastCursor) {
     startOpts = { cursor: lastCursor }
   } else {
-    let startLedger = lastLedger || START_LEDGER
-    if (!startLedger) {
-      // Probe getEvents with ledger 1 to discover the actual retention window
-      // from either the result.oldestLedger field or the error message.
-      startLedger = await resolveOldestLedger()
-    }
-    startOpts = { startLedger }
+    // Always clamp to the oldest ledger the RPC still has: if the indexer was
+    // idle for >7 days, lastLedger is before the retention window and we must
+    // start from whatever the RPC can actually serve.
+    const oldestRetained = await resolveOldestLedger()
+    const desired = lastLedger || START_LEDGER || 0
+    startOpts = { startLedger: Math.max(desired, oldestRetained) }
   }
 
   let totalEvents = 0
@@ -281,7 +280,12 @@ export async function pollOnce(): Promise<PollResult> {
   // The RPC returns events in ledger order → tx order → event order.
   const txEventCount = new Map<string, number>()
 
-  // Paginate until caught up.
+  // The Soroban RPC has a per-call scan limit: when no matching events exist in
+  // the scanned range it returns 0 events with an ADVANCING cursor. We must
+  // continue through those empty pages. The true tip is when the cursor stops
+  // moving (two consecutive calls return the same cursor string).
+  let prevCursor: string | null = null
+
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const result = await server.getEvents({
@@ -291,8 +295,6 @@ export async function pollOnce(): Promise<PollResult> {
     })
 
     latestLedger = result.latestLedger
-
-    if (!result.events.length) break
 
     for (const raw of result.events) {
       if (!raw.inSuccessfulContractCall) continue
@@ -314,8 +316,12 @@ export async function pollOnce(): Promise<PollResult> {
     // result.cursor points just past the last returned event (SDK contract).
     if (result.cursor) currentCursor = result.cursor
 
-    if (result.events.length < POLL_LIMIT) break
+    // Cursor unchanged → RPC has no more ledgers to scan, we are at the tip.
+    if (result.cursor === prevCursor) break
+    // Partial non-empty page → all remaining events returned, nothing ahead.
+    if (result.events.length > 0 && result.events.length < POLL_LIMIT) break
 
+    prevCursor = result.cursor ?? prevCursor
     startOpts = { cursor: result.cursor }
   }
 

@@ -15,17 +15,20 @@ config({ path: resolve(import.meta.dirname, '../../../.env') })
 
 const INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? '6000')
 
-const { pollOnce } = await import('../app/api/indexer/poller.js')
+async function main() {
+  const { pollOnce } = await import('../app/api/indexer/poller.js')
+  console.log(`[indexer] starting — interval=${INTERVAL_MS}ms`)
 
-console.log(`[indexer] starting — interval=${INTERVAL_MS}ms`)
-
-while (true) {
-  try {
-    const { processedEvents, latestLedger } = await pollOnce()
-    if (processedEvents > 0)
-      console.log(`[indexer] +${processedEvents} events  ledger=${latestLedger}`)
-  } catch (err) {
-    console.error('[indexer] poll error:', err)
+  while (true) {
+    try {
+      const { processedEvents, latestLedger } = await pollOnce()
+      if (processedEvents > 0)
+        console.log(`[indexer] +${processedEvents} events  ledger=${latestLedger}`)
+    } catch (err) {
+      console.error('[indexer] poll error:', err)
+    }
+    await new Promise(r => setTimeout(r, INTERVAL_MS))
   }
-  await new Promise(resolve => setTimeout(resolve, INTERVAL_MS))
 }
+
+main().catch(err => { console.error(err); process.exit(1) })

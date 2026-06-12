@@ -47,3 +47,6 @@ apps/web/.agents/skills/design-system/SKILL.md
 # cargo-mutants output
 mutants.out/
 mutants.out.old/
+
+# supabase cli local state
+supabase/.temp/
